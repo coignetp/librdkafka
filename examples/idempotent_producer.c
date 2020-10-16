@@ -160,6 +160,7 @@ int main (int argc, char **argv) {
         rd_kafka_resp_err_t err; /* librdkafka API error code */
         const char *brokers;     /* Argument: broker list */
         const char *topic;       /* Argument: topic to produce to */
+        const char *stats_interval_ms = "1000";
         int msgcnt = 0;          /* Number of messages produced */
 
         /*
@@ -196,6 +197,15 @@ int main (int argc, char **argv) {
                 fprintf(stderr, "%s\n", errstr);
                 rd_kafka_conf_destroy(conf);
                 return 1;
+        }
+
+        if (rd_kafka_conf_set(conf, "statistics.interval.ms", stats_interval_ms,
+                              errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+                fprintf(stderr, "%s\n", errstr);
+                rd_kafka_conf_destroy(conf);
+                return 1;
+        } else {
+                printf("Statistics interval set to 5000ms\n");
         }
 
         /* Set the delivery report callback.

@@ -1542,6 +1542,131 @@ static void rd_kafka_stats_emit_broker_reqs (struct _stats_emit *st,
 }
 
 
+static void rd_kafka_dogstatsd_add_metric(rd_kafka_t *rk, const char *prefix, char **metrics, ssize_t *metrics_size, unsigned int *offset, const rd_kafka_dogstatsd_metric_t metric, const char *tags) {
+        ssize_t _rem = *metrics_size - *offset;
+        ssize_t _r = strlen(prefix) + strlen(metric.name) + 1 + 12 /* max value */ + 4 + strlen(tags);
+
+        if (rk->rk_type & metric.flag) {
+                while (_r >= _rem) {
+                        *metrics_size *= 2;
+                        _rem = *metrics_size - *offset;
+                        *metrics = rd_realloc(*metrics, *metrics_size);
+                }
+                /* TODO: sample rate */
+                _r = sprintf(*metrics + *offset, "%s%s:%ld|%c|#%s\n", prefix, metric.name, metric.value, metric.type, tags);
+                *offset += _r;
+        }
+}
+
+/**
+ * Send all statistics to DogStatsD
+ */
+static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
+
+        unsigned int tot_cnt;
+	size_t tot_size;
+        char *prefix;
+        ssize_t metrics_size = 1024;
+        unsigned int offset = 0;
+        unsigned int offset_tags = 0;
+        char *metrics = rd_malloc(metrics_size);
+        char common_tags[1024];
+        rd_kafka_broker_t *rkb;
+        rd_kafka_topic_t *rkt;
+        struct _stats_total total = {0};
+        rd_kafka_curr_msgs_get(rk, &tot_cnt, &tot_size);
+
+        /* Fill metrics */
+        if (rk->rk_type == RD_KAFKA_CONSUMER) {
+                prefix = "kafka.consumer.";
+                /* TODO: safe it */
+                offset_tags += sprintf(common_tags, "consumer_group:%s", rk->rk_conf.group_id_str);
+                offset_tags += sprintf(common_tags + offset_tags, ",name:%s", rk->rk_name);
+        } else {
+                prefix = "kafka.producer.";
+                /* TODO: safe it */
+                // offset_tags += sprintf(common_tags, "consumer_group:%s", rk->rk_conf.group_id_str);
+        }
+
+        TAILQ_FOREACH(rkb, &rk->rk_brokers, rkb_link) {
+		rd_kafka_broker_lock(rkb);
+                
+                total.tx       += rd_atomic64_get(&rkb->rkb_c.tx);
+                total.tx_bytes += rd_atomic64_get(&rkb->rkb_c.tx_bytes);
+                total.rx       += rd_atomic64_get(&rkb->rkb_c.rx);
+                total.rx_bytes += rd_atomic64_get(&rkb->rkb_c.rx_bytes);
+
+                rd_kafka_broker_unlock(rkb);
+        }
+        TAILQ_FOREACH(rkt, &rk->rk_topics, rkt_link) {
+                int i;
+
+                rd_kafka_topic_rdlock(rkt);
+                
+                // for (i = 0 ; i < rkt->rkt_partition_cnt ; i++)
+                //         rd_kafka_stats_emit_toppar(st, &total, rkt->rkt_p[i],
+                //                                    i == 0);
+
+                // RD_LIST_FOREACH(rktp, &rkt->rkt_desp, j)
+                //         rd_kafka_stats_emit_toppar(st, &total, rktp, i+j == 0);
+
+                // i += j;
+
+                // if (rkt->rkt_ua)
+                //         rd_kafka_stats_emit_toppar(st, NULL, rkt->rkt_ua,
+                //                                    i++ == 0);
+                
+                // TODO: fix total values
+                for (i = 0 ; i < rkt->rkt_partition_cnt ; i++) {
+                        total.txmsgs      += rd_atomic64_get(&rkt->rkt_p[i]->rktp_c.tx_msgs);
+                        total.txmsg_bytes += rd_atomic64_get(&rkt->rkt_p[i]->rktp_c.tx_msg_bytes);
+                        total.rxmsgs      += rd_atomic64_get(&rkt->rkt_p[i]->rktp_c.rx_msgs);
+                        total.rxmsg_bytes += rd_atomic64_get(&rkt->rkt_p[i]->rktp_c.rx_msg_bytes);
+                }
+
+                rd_kafka_topic_rdunlock(rkt);
+        }
+
+        const rd_kafka_dogstatsd_metric_t metric_list[] = {
+                {"messages", 'g', tot_cnt, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
+                {"messages.size", 'g', tot_size, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
+                {"messages.max", 'g', rk->rk_curr_msgs.max_cnt, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
+                {"messages.size_max", 'g', rk->rk_curr_msgs.max_size, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
+                {"tx", 'c', total.tx, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
+                {"tx_bytes", 'c', total.tx_bytes, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
+                {"rx", 'c', total.rx, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
+                {"rx_bytes", 'c', total.rx_bytes, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
+                {"txmsgs", 'c', total.txmsgs, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
+                {"txmsg_bytes", 'c', total.txmsg_bytes, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
+                {"rxmsgs", 'c', total.rxmsgs, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
+                {"rxmsg_bytes", 'c', total.rxmsg_bytes, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
+        };
+        int metric_list_size = 12;
+
+        int i = 0;
+        for (i = 0 ; i < metric_list_size ; i++) {
+                rd_kafka_dogstatsd_add_metric(rk, prefix, &metrics, &metrics_size, 
+                        &offset, metric_list[i], common_tags);
+        }
+
+        // Check if the socket is still fine. TODO: necessary? TODO: use rd_kafka_transport_send but udp
+        printf("## DD ## Sending once: %s", metrics);
+        if (sendto(rk->rk_dogstatsd_sockfd, (const char *)metrics, strlen(metrics), 
+                MSG_CONFIRM, (const struct sockaddr *)&rk->rk_dogstasd_addr, sizeof(rk->rk_dogstasd_addr)) == -1 ) {
+                
+                printf("## DD ## Failed. Trying again\n");
+                if ( (rk->rk_dogstatsd_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
+                        perror("socket creation failed"); // TODO: only logging
+                        exit(EXIT_FAILURE);
+                }
+                sendto(rk->rk_dogstatsd_sockfd, (const char *)metrics, strlen(metrics), MSG_CONFIRM,
+                        (const struct sockaddr *)&rk->rk_dogstasd_addr, sizeof(rk->rk_dogstasd_addr));
+        }
+
+        rd_free(metrics);
+}
+
+
 /**
  * Emit all statistics
  */
@@ -1838,7 +1963,12 @@ static void rd_kafka_1s_tmr_cb (rd_kafka_timers_t *rkts, void *arg) {
 
 static void rd_kafka_stats_emit_tmr_cb (rd_kafka_timers_t *rkts, void *arg) {
         rd_kafka_t *rk = rkts->rkts_rk;
-	rd_kafka_stats_emit_all(rk);
+
+        if (rk->rk_conf.stats_cb)
+	        rd_kafka_stats_emit_all(rk);
+
+        if (rk->rk_conf.dogstatsd_address)
+                rd_kafka_dogstatsd_emit(rk);
 }
 
 
@@ -2321,7 +2451,20 @@ rd_kafka_t *rd_kafka_new (rd_kafka_type_t type, rd_kafka_conf_t *app_conf,
                 rd_kafka_wrunlock(rk);
         }
 
+        /* Create DogStatsD socket */
+        if (rk->rk_conf.dogstatsd_address) {
+                rd_kafka_wrlock(rk);
 
+                rk->rk_dogstasd_addr.in.sin_family = AF_INET;
+                rk->rk_dogstasd_addr.in.sin_port = htons(8125);
+                inet_aton(rk->rk_conf.dogstatsd_address, &rk->rk_dogstasd_addr.in.sin_addr.s_addr);
+                if ( (rk->rk_dogstatsd_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
+                        perror("socket creation failed"); // TODO
+                        exit(EXIT_FAILURE); 
+                }
+
+                rd_kafka_wrunlock(rk);
+        }
 
 	/* Lock handle here to synchronise state, i.e., hold off
 	 * the thread until we've finalized the handle. */
