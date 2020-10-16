@@ -1546,7 +1546,7 @@ static void rd_kafka_dogstatsd_add_metric(rd_kafka_t *rk, const char *prefix, ch
         ssize_t _rem = *metrics_size - *offset;
         ssize_t _r = strlen(prefix) + strlen(metric.name) + 1 + 12 /* max value */ + 4 + strlen(tags);
 
-        if (rk->rk_type & metric.flag) {
+        if ((rk->rk_type + 1) & metric.flag) {
                 while (_r >= _rem) {
                         *metrics_size *= 2;
                         _rem = *metrics_size - *offset;
@@ -1585,7 +1585,7 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
         } else {
                 prefix = "kafka.producer.";
                 /* TODO: safe it */
-                // offset_tags += sprintf(common_tags, "consumer_group:%s", rk->rk_conf.group_id_str);
+                offset_tags += sprintf(common_tags + offset_tags, ",name:%s", rk->rk_name);
         }
 
         TAILQ_FOREACH(rkb, &rk->rk_brokers, rkb_link) {
@@ -1627,19 +1627,23 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
                 rd_kafka_topic_rdunlock(rkt);
         }
 
+        /* TODO: refactor flag stuff */
+        const flag_producer_metric = RD_KAFKA_PRODUCER + 1;
+        const flag_consumer_metric = RD_KAFKA_CONSUMER + 1;
+        const flag_producer_consumer_metric = flag_consumer_metric | flag_producer_metric;
         const rd_kafka_dogstatsd_metric_t metric_list[] = {
-                {"messages", 'g', tot_cnt, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
-                {"messages.size", 'g', tot_size, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
-                {"messages.max", 'g', rk->rk_curr_msgs.max_cnt, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
-                {"messages.size_max", 'g', rk->rk_curr_msgs.max_size, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
-                {"tx", 'c', total.tx, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
-                {"tx_bytes", 'c', total.tx_bytes, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
-                {"rx", 'c', total.rx, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
-                {"rx_bytes", 'c', total.rx_bytes, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
-                {"txmsgs", 'c', total.txmsgs, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
-                {"txmsg_bytes", 'c', total.txmsg_bytes, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
-                {"rxmsgs", 'c', total.rxmsgs, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
-                {"rxmsg_bytes", 'c', total.rxmsg_bytes, RD_KAFKA_CONSUMER | RD_KAFKA_PRODUCER},
+                {"messages", 'g', tot_cnt, flag_producer_consumer_metric},
+                {"messages.size", 'g', tot_size, flag_producer_consumer_metric},
+                {"messages.max", 'g', rk->rk_curr_msgs.max_cnt, flag_producer_consumer_metric},
+                {"messages.size_max", 'g', rk->rk_curr_msgs.max_size, flag_producer_consumer_metric},
+                {"tx", 'c', total.tx, flag_producer_consumer_metric},
+                {"tx_bytes", 'c', total.tx_bytes, flag_producer_consumer_metric},
+                {"rx", 'c', total.rx, flag_producer_consumer_metric},
+                {"rx_bytes", 'c', total.rx_bytes, flag_producer_consumer_metric},
+                {"txmsgs", 'c', total.txmsgs, flag_producer_consumer_metric},
+                {"txmsg_bytes", 'c', total.txmsg_bytes, flag_producer_consumer_metric},
+                {"rxmsgs", 'c', total.rxmsgs, flag_producer_consumer_metric},
+                {"rxmsg_bytes", 'c', total.rxmsg_bytes, flag_producer_consumer_metric},
         };
         int metric_list_size = 12;
 

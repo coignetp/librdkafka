@@ -149,7 +149,7 @@ int main (int argc, char **argv) {
                 printf("Statistics interval set to 5000ms\n");
         }
 
-        if (rd_kafka_conf_set(conf, "dogstatsd.address", dogstatsd_address,
+        if (rd_kafka_conf_set(conf, "dogstatsd.endpoint", dogstatsd_address,
                               errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
                 fprintf(stderr, "%s\n", errstr);
                 rd_kafka_conf_destroy(conf);
