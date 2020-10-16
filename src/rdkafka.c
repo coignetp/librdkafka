@@ -1636,14 +1636,14 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
                 {"messages.size", 'g', tot_size, flag_producer_consumer_metric},
                 {"messages.max", 'g', rk->rk_curr_msgs.max_cnt, flag_producer_consumer_metric},
                 {"messages.size_max", 'g', rk->rk_curr_msgs.max_size, flag_producer_consumer_metric},
-                {"tx", 'c', total.tx, flag_producer_consumer_metric},
-                {"tx_bytes", 'c', total.tx_bytes, flag_producer_consumer_metric},
-                {"rx", 'c', total.rx, flag_producer_consumer_metric},
-                {"rx_bytes", 'c', total.rx_bytes, flag_producer_consumer_metric},
-                {"txmsgs", 'c', total.txmsgs, flag_producer_consumer_metric},
-                {"txmsg_bytes", 'c', total.txmsg_bytes, flag_producer_consumer_metric},
-                {"rxmsgs", 'c', total.rxmsgs, flag_producer_consumer_metric},
-                {"rxmsg_bytes", 'c', total.rxmsg_bytes, flag_producer_consumer_metric},
+                {"tx", 'c', total.tx, flag_producer_metric},
+                {"tx_bytes", 'c', total.tx_bytes, flag_producer_metric},
+                {"rx", 'c', total.rx, flag_consumer_metric},
+                {"rx_bytes", 'c', total.rx_bytes, flag_consumer_metric},
+                {"txmsgs", 'c', total.txmsgs, flag_producer_metric},
+                {"txmsg_bytes", 'c', total.txmsg_bytes, flag_producer_metric},
+                {"rxmsgs", 'c', total.rxmsgs, flag_consumer_metric},
+                {"rxmsg_bytes", 'c', total.rxmsg_bytes, flag_consumer_metric},
         };
         int metric_list_size = 12;
 
