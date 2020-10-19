@@ -1673,18 +1673,12 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
                         &offset, metric_list[i], common_tags);
         }
 
-        // Check if the socket is still fine. TODO: necessary? TODO: use rd_kafka_transport_send but udp
         printf("## DD ## Sending once: %s", metrics);
         if (sendto(rk->rk_dogstatsd_sockfd, (const char *)metrics, strlen(metrics),
                 MSG_CONFIRM, (const struct sockaddr *)&rk->rk_dogstasd_addr, sizeof(rk->rk_dogstasd_addr)) == -1 ) {
 
-                printf("## DD ## Failed. Trying again\n");
-                if ( (rk->rk_dogstatsd_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
-                        perror("socket creation failed"); // TODO: only logging
-                        exit(EXIT_FAILURE);
-                }
-                sendto(rk->rk_dogstatsd_sockfd, (const char *)metrics, strlen(metrics), MSG_CONFIRM,
-                        (const struct sockaddr *)&rk->rk_dogstasd_addr, sizeof(rk->rk_dogstasd_addr));
+                perror("Error sending metrics to DogStatsD"); // TODO: only logging
+                exit(EXIT_FAILURE);
         }
 
         rd_kafka_rdunlock(rk);
