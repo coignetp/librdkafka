@@ -1207,7 +1207,7 @@ int main (int argc, char **argv) {
 
         /* Always enable stats (for RTT extraction), and if user supplied
          * the -T <intvl> option we let her take part of the stats aswell. */
-        rd_kafka_conf_set_stats_cb(conf, NULL);
+        rd_kafka_conf_set_stats_cb(conf, stats_cb);
 
         if (!stats_intvlstr) {
                 /* if no user-desired stats, adjust stats interval

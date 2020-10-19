@@ -1574,6 +1574,28 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
         rd_kafka_broker_t *rkb;
         rd_kafka_topic_t *rkt;
         struct _stats_total total = {0};
+
+        /* TODO: refactor flag stuff */
+        const flag_producer_metric = RD_KAFKA_PRODUCER + 1;
+        const flag_consumer_metric = RD_KAFKA_CONSUMER + 1;
+        const flag_producer_consumer_metric = flag_consumer_metric | flag_producer_metric;
+        const rd_kafka_dogstatsd_metric_t metric_list[] = {
+                {"messages", 'g', tot_cnt, flag_producer_consumer_metric},
+                {"messages.size", 'g', tot_size, flag_producer_consumer_metric},
+                {"messages.max", 'g', rk->rk_curr_msgs.max_cnt, flag_producer_consumer_metric},
+                {"messages.size_max", 'g', rk->rk_curr_msgs.max_size, flag_producer_consumer_metric},
+                {"tx", 'g', total.tx, flag_producer_metric},
+                {"tx_bytes", 'g', total.tx_bytes, flag_producer_metric},
+                {"rx", 'g', total.rx, flag_consumer_metric},
+                {"rx_bytes", 'g', total.rx_bytes, flag_consumer_metric},
+                {"txmsgs", 'g', total.txmsgs, flag_producer_metric},
+                {"txmsg_bytes", 'g', total.txmsg_bytes, flag_producer_metric},
+                {"rxmsgs", 'g', total.rxmsgs, flag_consumer_metric},
+                {"rxmsg_bytes", 'g', total.rxmsg_bytes, flag_consumer_metric},
+        };
+        int metric_list_size = 12;
+        int i = 0;
+
         rd_kafka_curr_msgs_get(rk, &tot_cnt, &tot_size);
 
         /* Fill metrics */
@@ -1585,12 +1607,12 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
         } else {
                 prefix = "kafka.producer.";
                 /* TODO: safe it */
-                offset_tags += sprintf(common_tags + offset_tags, ",name:%s", rk->rk_name);
+                offset_tags += sprintf(common_tags + offset_tags, "name:%s", rk->rk_name);
         }
 
         TAILQ_FOREACH(rkb, &rk->rk_brokers, rkb_link) {
 		rd_kafka_broker_lock(rkb);
-                
+
                 total.tx       += rd_atomic64_get(&rkb->rkb_c.tx);
                 total.tx_bytes += rd_atomic64_get(&rkb->rkb_c.tx_bytes);
                 total.rx       += rd_atomic64_get(&rkb->rkb_c.rx);
@@ -1599,10 +1621,22 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
                 rd_kafka_broker_unlock(rkb);
         }
         TAILQ_FOREACH(rkt, &rk->rk_topics, rkt_link) {
-                int i;
-
                 rd_kafka_topic_rdlock(rkt);
-                
+
+                int i;
+                char topic_tags[2048]; // TODO: safe it
+                // TODO: refactor for hist? AND Send all the hist metrics
+                const rd_kafka_dogstatsd_metric_t metric_list_topic[] = {
+                        {"topic.batchsize.avg", 'g', rkt->rkt_avg_batchsize.ra_v.avg, flag_producer_consumer_metric},
+                        {"topic.batchsize.min", 'g', rkt->rkt_avg_batchsize.ra_v.minv, flag_producer_consumer_metric},
+                        {"topic.batchsize.max", 'g', rkt->rkt_avg_batchsize.ra_v.maxv, flag_producer_consumer_metric},
+                        {"topic.batchsize.p95", 'g', rkt->rkt_avg_batchsize.ra_hist.p95, flag_producer_consumer_metric},
+                        {"topic.batchsize.p99", 'g', rkt->rkt_avg_batchsize.ra_hist.p99, flag_producer_consumer_metric},
+                };
+                int metric_list_topic_size = 5;
+                sprintf(topic_tags, "%s,topic:%.*s", common_tags, RD_KAFKAP_STR_PR(rkt->rkt_topic));
+
+
                 // for (i = 0 ; i < rkt->rkt_partition_cnt ; i++)
                 //         rd_kafka_stats_emit_toppar(st, &total, rkt->rkt_p[i],
                 //                                    i == 0);
@@ -1625,41 +1659,24 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
                 }
 
                 rd_kafka_topic_rdunlock(rkt);
+
+                for (i = 0 ; i < metric_list_topic_size ; i++)
+                        rd_kafka_dogstatsd_add_metric(rk, prefix, &metrics, &metrics_size,
+                                &offset, metric_list_topic[i], topic_tags);
         }
 
-        /* TODO: refactor flag stuff */
-        const flag_producer_metric = RD_KAFKA_PRODUCER + 1;
-        const flag_consumer_metric = RD_KAFKA_CONSUMER + 1;
-        const flag_producer_consumer_metric = flag_consumer_metric | flag_producer_metric;
-        const rd_kafka_dogstatsd_metric_t metric_list[] = {
-                {"messages", 'g', tot_cnt, flag_producer_consumer_metric},
-                {"messages.size", 'g', tot_size, flag_producer_consumer_metric},
-                {"messages.max", 'g', rk->rk_curr_msgs.max_cnt, flag_producer_consumer_metric},
-                {"messages.size_max", 'g', rk->rk_curr_msgs.max_size, flag_producer_consumer_metric},
-                {"tx", 'c', total.tx, flag_producer_metric},
-                {"tx_bytes", 'c', total.tx_bytes, flag_producer_metric},
-                {"rx", 'c', total.rx, flag_consumer_metric},
-                {"rx_bytes", 'c', total.rx_bytes, flag_consumer_metric},
-                {"txmsgs", 'c', total.txmsgs, flag_producer_metric},
-                {"txmsg_bytes", 'c', total.txmsg_bytes, flag_producer_metric},
-                {"rxmsgs", 'c', total.rxmsgs, flag_consumer_metric},
-                {"rxmsg_bytes", 'c', total.rxmsg_bytes, flag_consumer_metric},
-        };
-        int metric_list_size = 12;
-
-        int i = 0;
         for (i = 0 ; i < metric_list_size ; i++) {
-                rd_kafka_dogstatsd_add_metric(rk, prefix, &metrics, &metrics_size, 
+                rd_kafka_dogstatsd_add_metric(rk, prefix, &metrics, &metrics_size,
                         &offset, metric_list[i], common_tags);
         }
 
         // Check if the socket is still fine. TODO: necessary? TODO: use rd_kafka_transport_send but udp
         printf("## DD ## Sending once: %s", metrics);
-        if (sendto(rk->rk_dogstatsd_sockfd, (const char *)metrics, strlen(metrics), 
+        if (sendto(rk->rk_dogstatsd_sockfd, (const char *)metrics, strlen(metrics),
                 MSG_CONFIRM, (const struct sockaddr *)&rk->rk_dogstasd_addr, sizeof(rk->rk_dogstasd_addr)) == -1 ) {
-                
+
                 printf("## DD ## Failed. Trying again\n");
-                if ( (rk->rk_dogstatsd_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
+                if ( (rk->rk_dogstatsd_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
                         perror("socket creation failed"); // TODO: only logging
                         exit(EXIT_FAILURE);
                 }
@@ -2462,9 +2479,9 @@ rd_kafka_t *rd_kafka_new (rd_kafka_type_t type, rd_kafka_conf_t *app_conf,
                 rk->rk_dogstasd_addr.in.sin_family = AF_INET;
                 rk->rk_dogstasd_addr.in.sin_port = htons(8125);
                 inet_aton(rk->rk_conf.dogstatsd_address, &rk->rk_dogstasd_addr.in.sin_addr.s_addr);
-                if ( (rk->rk_dogstatsd_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
+                if ( (rk->rk_dogstatsd_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
                         perror("socket creation failed"); // TODO
-                        exit(EXIT_FAILURE); 
+                        exit(EXIT_FAILURE);
                 }
 
                 rd_kafka_wrunlock(rk);
