@@ -552,7 +552,7 @@ static const struct rd_kafka_property rd_kafka_properties[] = {
 	  "The granularity is 1000ms. A value of 0 disables statistics.",
 	  0, 86400*1000, 0 },
         { _RK_GLOBAL, "dogstatsd.endpoint", _RK_C_STR,
-          _RK(dogstatsd_address),
+          _RK(dogstatsd_endpoint),
           "TODO DogStatsD description."},
 	{ _RK_GLOBAL, "enabled_events", _RK_C_INT,
 	  _RK(enabled_events),

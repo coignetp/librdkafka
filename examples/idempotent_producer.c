@@ -161,7 +161,7 @@ int main (int argc, char **argv) {
         const char *brokers;     /* Argument: broker list */
         const char *topic;       /* Argument: topic to produce to */
         const char *stats_interval_ms = "5000";
-        const char *dogstatsd_address = "localhost:8125";
+        const char *dogstatsd_endpoint = "localhost:8125";
         int msgcnt = 0;          /* Number of messages produced */
 
         /*
@@ -209,13 +209,13 @@ int main (int argc, char **argv) {
                 printf("Statistics interval set to %s\n", stats_interval_ms);
         }
 
-        if (rd_kafka_conf_set(conf, "dogstatsd.endpoint", dogstatsd_address,
+        if (rd_kafka_conf_set(conf, "dogstatsd.endpoint", dogstatsd_endpoint,
                               errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
                 fprintf(stderr, "%s\n", errstr);
                 rd_kafka_conf_destroy(conf);
                 return 1;
         } else {
-                printf("DogStatsD address set to %s\n", dogstatsd_address);
+                printf("DogStatsD address set to %s\n", dogstatsd_endpoint);
         }
 
         /* Set the delivery report callback.

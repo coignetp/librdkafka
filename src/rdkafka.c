@@ -1545,14 +1545,15 @@ static void rd_kafka_stats_emit_broker_reqs (struct _stats_emit *st,
 static void rd_kafka_dogstatsd_add_metric(rd_kafka_t *rk, const char *prefix, char **metrics, ssize_t *metrics_size, unsigned int *offset, const rd_kafka_dogstatsd_metric_t metric, const char *tags) {
         if ((rk->rk_type + 1) & metric.flag) {
                 ssize_t _rem = *metrics_size - *offset;
-                /* TODO: sample rate */
+                /* The sample rate argument `|@` is not supported here.
+                 * See https://docs.datadoghq.com/developers/dogstatsd/datagram_shell for the specification.
+                 */
                 ssize_t _r = rd_snprintf(*metrics + *offset, _rem, "%s%s:%ld|%c|#%s\n", prefix, metric.name, metric.value, metric.type, tags);
 
                 while (_r >= _rem) {
                         *metrics_size *= 2;
                         _rem = *metrics_size - *offset;
                         *metrics = rd_realloc(*metrics, *metrics_size);
-                        /* TODO: sample rate */
                         _r = rd_snprintf(*metrics + *offset, _rem, "%s%s:%ld|%c|#%s\n", prefix, metric.name, metric.value, metric.type, tags);
                 }
                 *offset += _r;
@@ -1652,6 +1653,7 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
         }
 
         // Wait for total to be set
+        // TODO: rename
         const rd_kafka_dogstatsd_metric_t metric_list[] = {
                 {"messages", 'g', tot_cnt, flag_producer_consumer_metric},
                 {"messages.size", 'g', tot_size, flag_producer_consumer_metric},
@@ -1675,7 +1677,7 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
 
         printf("## DD ## Sending once: %s", metrics);
         if (sendto(rk->rk_dogstatsd_sockfd, (const char *)metrics, strlen(metrics),
-                MSG_CONFIRM, (const struct sockaddr *)&rk->rk_dogstasd_addr, sizeof(rk->rk_dogstasd_addr)) == -1 ) {
+                MSG_CONFIRM, (const struct sockaddr *)&rk->rk_dogstatsd_addr, sizeof(rk->rk_dogstatsd_addr)) == -1 ) {
 
                 perror("Error sending metrics to DogStatsD"); // TODO: only logging
                 exit(EXIT_FAILURE);
@@ -1987,7 +1989,7 @@ static void rd_kafka_stats_emit_tmr_cb (rd_kafka_timers_t *rkts, void *arg) {
         if (rk->rk_conf.stats_cb)
 	        rd_kafka_stats_emit_all(rk);
 
-        if (rk->rk_conf.dogstatsd_address)
+        if (rk->rk_conf.dogstatsd_endpoint)
                 rd_kafka_dogstatsd_emit(rk);
 }
 
@@ -2472,12 +2474,12 @@ rd_kafka_t *rd_kafka_new (rd_kafka_type_t type, rd_kafka_conf_t *app_conf,
         }
 
         /* Create DogStatsD socket */
-        if (rk->rk_conf.dogstatsd_address) {
+        if (rk->rk_conf.dogstatsd_endpoint) {
                 rd_kafka_wrlock(rk);
 
-                rk->rk_dogstasd_addr.in.sin_family = AF_INET;
-                rk->rk_dogstasd_addr.in.sin_port = htons(8125);
-                inet_aton(rk->rk_conf.dogstatsd_address, &rk->rk_dogstasd_addr.in.sin_addr.s_addr);
+                rk->rk_dogstatsd_addr.in.sin_family = AF_INET;
+                rk->rk_dogstatsd_addr.in.sin_port = htons(8125);
+                inet_aton(rk->rk_conf.dogstatsd_endpoint, &rk->rk_dogstatsd_addr.in.sin_addr.s_addr);
                 if ( (rk->rk_dogstatsd_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
                         perror("socket creation failed"); // TODO
                         exit(EXIT_FAILURE);
