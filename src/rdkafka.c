@@ -1543,17 +1543,18 @@ static void rd_kafka_stats_emit_broker_reqs (struct _stats_emit *st,
 
 
 static void rd_kafka_dogstatsd_add_metric(rd_kafka_t *rk, const char *prefix, char **metrics, ssize_t *metrics_size, unsigned int *offset, const rd_kafka_dogstatsd_metric_t metric, const char *tags) {
-        ssize_t _rem = *metrics_size - *offset;
-        ssize_t _r = strlen(prefix) + strlen(metric.name) + 1 + 12 /* max value */ + 4 + strlen(tags);
-
         if ((rk->rk_type + 1) & metric.flag) {
+                ssize_t _rem = *metrics_size - *offset;
+                /* TODO: sample rate */
+                ssize_t _r = rd_snprintf(*metrics + *offset, _rem, "%s%s:%ld|%c|#%s\n", prefix, metric.name, metric.value, metric.type, tags);
+
                 while (_r >= _rem) {
                         *metrics_size *= 2;
                         _rem = *metrics_size - *offset;
                         *metrics = rd_realloc(*metrics, *metrics_size);
+                        /* TODO: sample rate */
+                        _r = rd_snprintf(*metrics + *offset, _rem, "%s%s:%ld|%c|#%s\n", prefix, metric.name, metric.value, metric.type, tags);
                 }
-                /* TODO: sample rate */
-                _r = sprintf(*metrics + *offset, "%s%s:%ld|%c|#%s\n", prefix, metric.name, metric.value, metric.type, tags);
                 *offset += _r;
         }
 }
@@ -1566,7 +1567,7 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
         unsigned int tot_cnt;
 	size_t tot_size;
         char *prefix;
-        ssize_t metrics_size = 1024;
+        ssize_t metrics_size = 64;
         unsigned int offset = 0;
         unsigned int offset_tags = 0;
         char *metrics = rd_malloc(metrics_size);
@@ -1574,6 +1575,8 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
         rd_kafka_broker_t *rkb;
         rd_kafka_topic_t *rkt;
         struct _stats_total total = {0};
+
+        rd_kafka_curr_msgs_get(rk, &tot_cnt, &tot_size);
 
         /* TODO: refactor flag stuff */
         const flag_producer_metric = RD_KAFKA_PRODUCER + 1;
@@ -1595,8 +1598,6 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
         };
         int metric_list_size = 12;
         int i = 0;
-
-        rd_kafka_curr_msgs_get(rk, &tot_cnt, &tot_size);
 
         /* Fill metrics */
         if (rk->rk_type == RD_KAFKA_CONSUMER) {
