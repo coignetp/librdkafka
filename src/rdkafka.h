@@ -7047,7 +7047,6 @@ typedef struct rd_kafka_dogstatsd_metric_s {
         char *name;
         char type;
         long value;
-        int flag;
 } rd_kafka_dogstatsd_metric_t;
 
 /* @cond NO_DOC */

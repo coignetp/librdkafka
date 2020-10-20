@@ -624,19 +624,25 @@ Note: this output is prettified using `jq .`, the JSON object emitted by librdka
 
 Metric name | Type | Unit | Tags | Description
 ----------- | ---- | ---- | ---- | -----------
-kafka.[consumer?/producer].messages | gauge | N/A | TODO | Current number of messages in producer queues
-kafka.[consumer?/producer].messages.size | gauge | N/A | TODO | Current total size of messages in producer queues
-kafka.[consumer?/producer].messages.max | gauge | N/A | TODO | Threshold: maximum number of messages allowed allowed on the producer queues
-kafka.[consumer?/producer].messages.size_max | gauge | N/A | TODO | Threshold: maximum total size of messages allowed on the producer queues
-kafka.[consumer?/producer].tx? | count | N/A | TODO | Total number of requests sent to Kafka brokers
-kafka.[consumer?/producer].tx_bytes? | count | N/A | TODO | Total number of bytes transmitted to Kafka brokers
-kafka.[consumer?/producer].rx? | count | N/A | TODO | Total number of requests received to Kafka brokers
-kafka.[consumer?/producer].rx_bytes? | count | N/A | TODO | Total number of bytes received to Kafka brokers
-kafka.[consumer?/producer].txmsgs? | count | N/A | TODO | Total number of messages transmitted (produced) to Kafka brokers
-kafka.[consumer?/producer].txmsg_bytes? | count | N/A | TODO | Total number of message bytes (including framing, such as per-Message framing and MessageSet/batch framing) transmitted to Kafka brokers
-kafka.[consumer?/producer].rxmsgs? | count | N/A | TODO | Total number of messages consumed, not including ignored messages (due to offset, etc), from Kafka brokers.
-kafka.[consumer?/producer].rxmsg_bytes? | count | N/A | TODO | Total number of message bytes (including framing) received from Kafka brokers
-kafka.[consumer?/producer].metadata_cache | gauge | N/A | TODO | Number of topics in the metadata cache.
+kafka.[consumer/producer].messages | gauge | N/A | TODO | Current number of messages in producer queues
+kafka.[consumer/producer].messages.size | gauge | N/A | TODO | Current total size of messages in producer queues
+kafka.[consumer/producer].messages.max | gauge | N/A | TODO | Threshold: maximum number of messages allowed allowed on the producer queues
+kafka.[consumer/producer].messages.size_max | gauge | N/A | TODO | Threshold: maximum total size of messages allowed on the producer queues
+kafka.[consumer/producer].tx? | count | N/A | TODO | Total number of requests sent to Kafka brokers
+kafka.[consumer/producer].tx_bytes? | count | N/A | TODO | Total number of bytes transmitted to Kafka brokers
+kafka.[consumer/producer].rx? | count | N/A | TODO | Total number of requests received to Kafka brokers
+kafka.[consumer/producer].rx_bytes? | count | N/A | TODO | Total number of bytes received to Kafka brokers
+kafka.producer.txmsgs? | count | N/A | TODO | Total number of messages transmitted (produced) to Kafka brokers
+kafka.producer.txmsg_bytes? | count | N/A | TODO | Total number of message bytes (including framing, such as per-Message framing and MessageSet/batch framing) transmitted to Kafka brokers
+kafka.consumer.rxmsgs? | count | N/A | TODO | Total number of messages consumed, not including ignored messages (due to offset, etc), from Kafka brokers.
+kafka.consumer.rxmsg_bytes? | count | N/A | TODO | Total number of message bytes (including framing) received from Kafka brokers
+kafka.[consumer/producer].metadata_cache (not yet) | gauge | N/A | TODO | Number of topics in the metadata cache.
+kafka.[consumer/producer].topic.batchsize.avg | gauge | N/A | TODO | TODO
+kafka.[consumer/producer].topic.batchsize.min | gauge | N/A | TODO | TODO 
+kafka.[consumer/producer].topic.batchsize.max | gauge | N/A | TODO | TODO
+kafka.[consumer/producer].topic.batchsize.p95 | gauge | N/A | TODO | TODO
+kafka.[consumer/producer].topic.batchsize.p99 | gauge | N/A | TODO | TODO
+other p
 
 broker metrics?
-topic metrics?
+
