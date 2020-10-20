@@ -1720,7 +1720,7 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
 
         printf("## DD ## Sending once: %s", metrics);
         if (sendto(rk->rk_dogstatsd_sockfd, (const char *)metrics, strlen(metrics),
-                MSG_CONFIRM, (const struct sockaddr *)&rk->rk_dogstatsd_addr, sizeof(rk->rk_dogstatsd_addr)) == -1 ) {
+                0, (const struct sockaddr *)&rk->rk_dogstatsd_addr, sizeof(rk->rk_dogstatsd_addr)) == -1 ) {
                 rd_kafka_log(rk, LOG_DEBUG, "DOGSTATSD", "Couldn't send metrics to DogStatsD");
         }
 
@@ -2030,8 +2030,7 @@ static void rd_kafka_1s_tmr_cb (rd_kafka_timers_t *rkts, void *arg) {
 static void rd_kafka_stats_emit_tmr_cb (rd_kafka_timers_t *rkts, void *arg) {
         rd_kafka_t *rk = rkts->rkts_rk;
 
-        if (rk->rk_conf.stats_cb)
-	        rd_kafka_stats_emit_all(rk);
+        rd_kafka_stats_emit_all(rk);
 
         if (rk->rk_conf.dogstatsd_endpoint)
                 rd_kafka_dogstatsd_emit(rk);
