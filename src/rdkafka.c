@@ -1623,19 +1623,21 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
         } else {
                 ssize_t _r;
                 prefix = "kafka.producer.";
-                _r = rd_snprintf(common_tags, "name:%s", rk->rk_name);
+                _r = rd_snprintf(common_tags, common_tags_size, "name:%s", rk->rk_name);
 
                 if (_r >= common_tags_size) {
                         common_tags_size = _r + 1;
                         common_tags = rd_realloc(common_tags, common_tags_size);
-                        _r = rd_snprintf(common_tags, "name:%s", rk->rk_name);
+                        _r = rd_snprintf(common_tags, common_tags_size, "name:%s", rk->rk_name);
                 }
         }
 
         prefix_batchsize = rd_malloc(strlen(prefix) + strlen("topic.batchsize."));
-        sprintf(prefix_batchsize, "%s%s", prefix, "topic.batchsize.");
+        strcpy(prefix_batchsize, prefix);
+        strcat(prefix_batchsize, "topic.batchsize.");
         prefix_batchcount = rd_malloc(strlen(prefix) + strlen("topic.batchcount."));
-        sprintf(prefix_batchcount, "%s%s", prefix, "topic.batchcount.");
+        strcpy(prefix_batchcount, prefix);
+        strcat(prefix_batchcount, "topic.batchcount.");
 
         TAILQ_FOREACH(rkb, &rk->rk_brokers, rkb_link) {
 		rd_kafka_broker_lock(rkb);
