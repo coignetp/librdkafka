@@ -1542,18 +1542,18 @@ static void rd_kafka_stats_emit_broker_reqs (struct _stats_emit *st,
 }
 
 
-static void rd_kafka_dogstatsd_add_metric(const char *prefix, char **metrics, ssize_t *metrics_size, unsigned int *offset, const rd_kafka_dogstatsd_metric_t metric, const char *tags) {
+static void rd_kafka_dogstatsd_add_metric(const char *prefix, char **metrics, ssize_t *metrics_size, unsigned int *offset, const rd_kafka_dogstatsd_metric_t rkdm, const char *tags) {
         ssize_t _rem = *metrics_size - *offset;
         /* The sample rate argument `|@` is not supported here.
          * See https://docs.datadoghq.com/developers/dogstatsd/datagram_shell for the specification.
          */
-        ssize_t _r = rd_snprintf(*metrics + *offset, _rem, "%s%s:%ld|%c|#%s\n", prefix, metric.name, metric.value, metric.type, tags);
+        ssize_t _r = rd_snprintf(*metrics + *offset, _rem, "%s%s:%ld|%c|#%s\n", prefix, rkdm.name, rkdm.value, rkdm.type, tags);
 
         while (_r >= _rem) {
                 *metrics_size *= 2;
                 _rem = *metrics_size - *offset;
                 *metrics = rd_realloc(*metrics, *metrics_size);
-                _r = rd_snprintf(*metrics + *offset, _rem, "%s%s:%ld|%c|#%s\n", prefix, metric.name, metric.value, metric.type, tags);
+                _r = rd_snprintf(*metrics + *offset, _rem, "%s%s:%ld|%c|#%s\n", prefix, rkdm.name, rkdm.value, rkdm.type, tags);
         }
         *offset += _r;
 }
@@ -1588,19 +1588,20 @@ void rd_kafka_dogstatsd_add_avg_metrics(const char *prefix, char **metrics,  ssi
  */
 static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
         unsigned int tot_cnt;
+        unsigned int offset = 0;
 	size_t tot_size;
+        ssize_t metrics_size = 1024;
+        ssize_t common_tags_size = 128;
         char *prefix;
         char *prefix_batchsize;
         char *prefix_batchcount;
-        ssize_t metrics_size = 1024;
-        ssize_t common_tags_size = 128;
-        unsigned int offset = 0;
-        char *metrics = rd_malloc(metrics_size);
+        char *metrics_str = rd_malloc(metrics_size);
         char *common_tags = rd_malloc(common_tags_size);
         rd_kafka_broker_t *rkb;
         rd_kafka_topic_t *rkt;
         rd_ts_t now;
         struct _stats_total total = {0};
+        int metric_list_size = 13;
         
         int i = 0;
 
@@ -1632,6 +1633,7 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
                 }
         }
 
+        /* Prefix name creation for the histogram metrics to emit */
         prefix_batchsize = rd_malloc(strlen(prefix) + strlen("topic.batchsize."));
         strcpy(prefix_batchsize, prefix);
         strcat(prefix_batchsize, "topic.batchsize.");
@@ -1639,6 +1641,7 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
         strcpy(prefix_batchcount, prefix);
         strcat(prefix_batchcount, "topic.batchcount.");
 
+        /* Compute rx and tx metrics */
         TAILQ_FOREACH(rkb, &rk->rk_brokers, rkb_link) {
 		rd_kafka_broker_lock(rkb);
 
@@ -1658,18 +1661,18 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
                 rd_kafka_dogstatsd_metric_t rkdm_age = {"topic.age", 'g', (now - rkt->rkt_ts_create)/1000};
                 rd_kafka_dogstatsd_metric_t rkdm_metadata_age = {"topic.metadata_age", 'g', rkt->rkt_ts_metadata ?
 			   (now - rkt->rkt_ts_metadata)/1000 : 0};
-
                 ssize_t _r = rd_snprintf(topic_tags, 0, "%s,topic:%.*s", common_tags, RD_KAFKAP_STR_PR(rkt->rkt_topic));
+
                 topic_tags = rd_malloc(_r + 1);
                 rd_snprintf(topic_tags, _r + 1, "%s,topic:%.*s", common_tags, RD_KAFKAP_STR_PR(rkt->rkt_topic));
 
-                 rd_kafka_dogstatsd_add_avg_metrics(prefix_batchsize, &metrics, &metrics_size,
+                 rd_kafka_dogstatsd_add_avg_metrics(prefix_batchsize, &metrics_str, &metrics_size,
                         &offset, rkt->rkt_avg_batchsize, topic_tags);
-                rd_kafka_dogstatsd_add_avg_metrics(prefix_batchcount, &metrics, &metrics_size,
+                rd_kafka_dogstatsd_add_avg_metrics(prefix_batchcount, &metrics_str, &metrics_size,
                         &offset, rkt->rkt_avg_batchcnt, topic_tags);
 
-                rd_kafka_dogstatsd_add_metric(prefix, &metrics, &metrics_size, &offset, rkdm_age, topic_tags);
-                rd_kafka_dogstatsd_add_metric(prefix, &metrics, &metrics_size, &offset, rkdm_metadata_age, topic_tags);
+                rd_kafka_dogstatsd_add_metric(prefix, &metrics_str, &metrics_size, &offset, rkdm_age, topic_tags);
+                rd_kafka_dogstatsd_add_metric(prefix, &metrics_str, &metrics_size, &offset, rkdm_metadata_age, topic_tags);
 
                 /* Computing total value */
                 for (j = 0 ; j < rkt->rkt_partition_cnt ; j++) {
@@ -1696,7 +1699,7 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
         }
 
         // Wait for total to be set
-        const rd_kafka_dogstatsd_metric_t metric_list[] = {
+        const rd_kafka_dogstatsd_metric_t rkdm_list[] = {
                 {"messages", 'g', tot_cnt},
                 {"messages.size", 'g', tot_size},
                 {"messages.max", 'g', rk->rk_curr_msgs.max_cnt},
@@ -1711,22 +1714,21 @@ static void rd_kafka_dogstatsd_emit(rd_kafka_t *rk) {
                 {"rxmsgs", 'g', total.rxmsgs},
                 {"rxmsg_bytes", 'g', total.rxmsg_bytes},
         };
-        int metric_list_size = 13;
 
         for (i = 0 ; i < metric_list_size ; i++) {
-                rd_kafka_dogstatsd_add_metric(prefix, &metrics, &metrics_size,
-                        &offset, metric_list[i], common_tags);
+                rd_kafka_dogstatsd_add_metric(prefix, &metrics_str, &metrics_size,
+                        &offset, rkdm_list[i], common_tags);
         }
 
-        printf("## DD ## Sending once: %s", metrics);
-        if (sendto(rk->rk_dogstatsd_sockfd, (const char *)metrics, strlen(metrics),
+        printf("## DD ## Sending once: %s", metrics_str);
+        if (sendto(rk->rk_dogstatsd_sockfd, (const char *)metrics_str, strlen(metrics_str),
                 0, (const struct sockaddr *)&rk->rk_dogstatsd_addr, sizeof(rk->rk_dogstatsd_addr)) == -1 ) {
                 rd_kafka_log(rk, LOG_DEBUG, "DOGSTATSD", "Couldn't send metrics to DogStatsD");
         }
 
         rd_kafka_rdunlock(rk);
 
-        rd_free(metrics);
+        rd_free(metrics_str);
         rd_free(common_tags);
         rd_free(prefix_batchsize);
         rd_free(prefix_batchcount);
@@ -2455,7 +2457,7 @@ rd_kafka_t *rd_kafka_new (rd_kafka_type_t type, rd_kafka_conf_t *app_conf,
                 rk->rk_dogstatsd_addr.in.sin_family = AF_INET;
                 /* TODO: parse the dogstatsd endpoint */
                 rk->rk_dogstatsd_addr.in.sin_port = htons(8125);
-                inet_aton(rk->rk_conf.dogstatsd_endpoint, &rk->rk_dogstatsd_addr.in.sin_addr.s_addr);
+                inet_aton(rk->rk_conf.dogstatsd_endpoint, (struct in_addr *)&rk->rk_dogstatsd_addr.in.sin_addr.s_addr);
                 if ((rk->rk_dogstatsd_sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
                         if (errstr) {
                                 rd_snprintf(errstr, errstr_size,
