@@ -1566,7 +1566,6 @@ void rd_kafka_dogstatsd_add_avg_metrics(const char *prefix, char **metrics,  ssi
                 {"max", 'g', avg.ra_v.maxv},
                 {"sum", 'g', avg.ra_v.sum},
                 {"count", 'g', avg.ra_v.cnt},
-                {"mean", 'g', avg.ra_hist.mean},
                 {"hdrsize", 'g', avg.ra_hist.hdrsize},
                 {"p50", 'g', avg.ra_hist.p50},
                 {"p75", 'g', avg.ra_hist.p75},
@@ -1575,7 +1574,7 @@ void rd_kafka_dogstatsd_add_avg_metrics(const char *prefix, char **metrics,  ssi
                 {"p99", 'g', avg.ra_hist.p99},
                 {"p99_99", 'g', avg.ra_hist.p99_99},
         };
-        const int avg_metrics_size = 13;
+        const int avg_metrics_size = 12;
         int i = 0;
 
         for (i = 0 ; i < avg_metrics_size ; i++) {

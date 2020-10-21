@@ -622,27 +622,44 @@ Note: this output is prettified using `jq .`, the JSON object emitted by librdka
 
 # DogStatsD Metrics
 
-Metric name | Type | Unit | Tags | Description
------------ | ---- | ---- | ---- | -----------
-kafka.[consumer/producer].messages | gauge | N/A | TODO | Current number of messages in producer queues
-kafka.[consumer/producer].messages.size | gauge | N/A | TODO | Current total size of messages in producer queues
-kafka.[consumer/producer].messages.max | gauge | N/A | TODO | Threshold: maximum number of messages allowed allowed on the producer queues
-kafka.[consumer/producer].messages.size_max | gauge | N/A | TODO | Threshold: maximum total size of messages allowed on the producer queues
-kafka.[consumer/producer].tx? | count | N/A | TODO | Total number of requests sent to Kafka brokers
-kafka.[consumer/producer].tx_bytes? | count | N/A | TODO | Total number of bytes transmitted to Kafka brokers
-kafka.[consumer/producer].rx? | count | N/A | TODO | Total number of requests received to Kafka brokers
-kafka.[consumer/producer].rx_bytes? | count | N/A | TODO | Total number of bytes received to Kafka brokers
-kafka.producer.txmsgs? | count | N/A | TODO | Total number of messages transmitted (produced) to Kafka brokers
-kafka.producer.txmsg_bytes? | count | N/A | TODO | Total number of message bytes (including framing, such as per-Message framing and MessageSet/batch framing) transmitted to Kafka brokers
-kafka.consumer.rxmsgs? | count | N/A | TODO | Total number of messages consumed, not including ignored messages (due to offset, etc), from Kafka brokers.
-kafka.consumer.rxmsg_bytes? | count | N/A | TODO | Total number of message bytes (including framing) received from Kafka brokers
-kafka.[consumer/producer].metadata_cache (not yet) | gauge | N/A | TODO | Number of topics in the metadata cache.
-kafka.[consumer/producer].topic.batchsize.avg | gauge | N/A | TODO | TODO
-kafka.[consumer/producer].topic.batchsize.min | gauge | N/A | TODO | TODO 
-kafka.[consumer/producer].topic.batchsize.max | gauge | N/A | TODO | TODO
-kafka.[consumer/producer].topic.batchsize.p95 | gauge | N/A | TODO | TODO
-kafka.[consumer/producer].topic.batchsize.p99 | gauge | N/A | TODO | TODO
-other p
+All the following metrics are prefixed with `kafka.consumer` or `kafka.producer`.
 
-broker metrics?
-
+Metric name | Type | Tags | Description
+----------- | ---- | ---- | -----------
+messages | gauge | name | Current number of messages in producer queues
+messages.size | gauge | name | Current total size of messages in producer queues
+messages.max | gauge | name | Threshold: maximum number of messages allowed allowed on the producer queues
+messages.size_max | gauge | name | Threshold: maximum total size of messages allowed on the producer queues
+tx | gauge | name | Total number of requests sent to Kafka brokers
+tx_bytes | gauge | name | Total number of bytes transmitted to Kafka brokers
+rx | gauge | name | Total number of requests received to Kafka brokers
+rx_bytes | gauge | name | Total number of bytes received to Kafka brokers
+txmsgs | gauge | name | Total number of messages transmitted (produced) to Kafka brokers
+txmsg_bytes | gauge | name | Total number of message bytes (including framing, such as per-Message framing and MessageSet/batch framing) transmitted to Kafka brokers
+rxmsgs | gauge | name | Total number of messages consumed, not including ignored messages (due to offset, etc), from Kafka brokers.
+rxmsg_bytes | gauge | name | Total number of message bytes (including framing) received from Kafka brokers
+metadata_cache | gauge | name | Number of topics in the metadata cache.
+topic.batchsize.min | gauge | name, topic | Smallest batch size value in bytes.
+topic.batchsize.max | gauge | name, topic | Largest batch size value in bytes.
+topic.batchsize.avg | gauge | name, topic | Average batch size value in bytes.
+topic.batchsize.sum | gauge | name, topic | Sum of batch size values in bytes.
+topic.batchsize.count | gauge | name, topic | Number of batch size values sampled.
+topic.batchsize.hdrsize | gauge | name, topic | Memory size of Histogram.
+topic.batchsize.p50 | gauge | name, topic | 50th batch size percentile.
+topic.batchsize.p75 | gauge | name, topic | 75th batch size percentile.
+topic.batchsize.p90 | gauge | name, topic | 90th batch size percentile.
+topic.batchsize.p95 | gauge | name, topic | 95th batch size percentile.
+topic.batchsize.p99 | gauge | name, topic | 99th batch size percentile.
+topic.batchsize.p99_99 | gauge | name, topic | 99.99th batch size percentile.
+topic.batchcount.min | gauge | name, topic | Smallest batch message count value.
+topic.batchcount.max | gauge | name, topic | Largest batch message count value.
+topic.batchcount.avg | gauge | name, topic | Average batch message count value.
+topic.batchcount.sum | gauge | name, topic | Sum of batch message count values.
+topic.batchcount.count | gauge | name, topic | Number of batch message count values sampled.
+topic.batchcount.hdrsize | gauge | name, topic | Memory size of Histogram.
+topic.batchcount.p50 | gauge | name, topic | 50th batch message count percentile.
+topic.batchcount.p75 | gauge | name, topic | 75th batch message count percentile.
+topic.batchcount.p90 | gauge | name, topic | 90th batch message count percentile.
+topic.batchcount.p95 | gauge | name, topic | 95th batch message count percentile.
+topic.batchcount.p99 | gauge | name, topic | 99th batch message count percentile.
+topic.batchcount.p99_99 | gauge | name, topic | 99.99th batch message count percentile.
