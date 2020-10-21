@@ -76,8 +76,6 @@ int main (int argc, char **argv) {
         char errstr[512];        /* librdkafka API error reporting buffer */
         const char *brokers;     /* Argument: broker list */
         const char *groupid;     /* Argument: Consumer group id */
-        const char *stats_interval_ms = "5000";
-        const char *dogstatsd_endpoint = "localhost:8125";
         char **topics;           /* Argument: list of topics to subscribe to */
         int topic_cnt;           /* Number of topics to subscribe to */
         rd_kafka_topic_partition_list_t *subscription; /* Subscribed topics */
@@ -138,24 +136,6 @@ int main (int argc, char **argv) {
                 fprintf(stderr, "%s\n", errstr);
                 rd_kafka_conf_destroy(conf);
                 return 1;
-        }
-
-        if (rd_kafka_conf_set(conf, "statistics.interval.ms", stats_interval_ms,
-                              errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-                fprintf(stderr, "%s\n", errstr);
-                rd_kafka_conf_destroy(conf);
-                return 1;
-        } else {
-                printf("Statistics interval set to 5000ms\n");
-        }
-
-        if (rd_kafka_conf_set(conf, "dogstatsd.endpoint", dogstatsd_endpoint,
-                              errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-                fprintf(stderr, "%s\n", errstr);
-                rd_kafka_conf_destroy(conf);
-                return 1;
-        } else {
-                printf("DogStatsD address set to %s\n", dogstatsd_endpoint);
         }
 
         /*

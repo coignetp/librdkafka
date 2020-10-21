@@ -160,8 +160,6 @@ int main (int argc, char **argv) {
         rd_kafka_resp_err_t err; /* librdkafka API error code */
         const char *brokers;     /* Argument: broker list */
         const char *topic;       /* Argument: topic to produce to */
-        const char *stats_interval_ms = "5000";
-        const char *dogstatsd_endpoint = "localhost:8125";
         int msgcnt = 0;          /* Number of messages produced */
 
         /*
@@ -198,24 +196,6 @@ int main (int argc, char **argv) {
                 fprintf(stderr, "%s\n", errstr);
                 rd_kafka_conf_destroy(conf);
                 return 1;
-        }
-
-        if (rd_kafka_conf_set(conf, "statistics.interval.ms", stats_interval_ms,
-                              errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-                fprintf(stderr, "%s\n", errstr);
-                rd_kafka_conf_destroy(conf);
-                return 1;
-        } else {
-                printf("Statistics interval set to %s\n", stats_interval_ms);
-        }
-
-        if (rd_kafka_conf_set(conf, "dogstatsd.endpoint", dogstatsd_endpoint,
-                              errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-                fprintf(stderr, "%s\n", errstr);
-                rd_kafka_conf_destroy(conf);
-                return 1;
-        } else {
-                printf("DogStatsD address set to %s\n", dogstatsd_endpoint);
         }
 
         /* Set the delivery report callback.
@@ -331,7 +311,7 @@ int main (int argc, char **argv) {
                 /* Since fatal errors can't be triggered in practice,
                  * use the test API to trigger a fabricated error after
                  * some time. */
-                if (msgcnt + 1 % 24 == 0)
+                if (msgcnt == 13)
                         rd_kafka_test_fatal_error(
                                 rk,
                                 RD_KAFKA_RESP_ERR_OUT_OF_ORDER_SEQUENCE_NUMBER,
@@ -340,7 +320,7 @@ int main (int argc, char **argv) {
 
                 /* Short sleep to rate-limit this example.
                  * A real application should not do this. */
-                usleep(1500 * 1000); /* 1500ms */
+                usleep(500 * 1000); /* 500ms */
         }
 
 
