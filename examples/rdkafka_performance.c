@@ -1229,8 +1229,9 @@ int main (int argc, char **argv) {
         }
 
         if (dogstatsd_endpoint) {
-            if (rd_kafka_conf_set(conf, "dogstatsd.endpoint", dogstatsd_endpoint,
-                errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+            if (rd_kafka_conf_set(conf, "dogstatsd.endpoint",
+                                  dogstatsd_endpoint, errstr,
+                                  sizeof(errstr)) != RD_KAFKA_CONF_OK) {
                     fprintf(stderr, "%% %s\n", errstr);
                     exit(1);
             }
